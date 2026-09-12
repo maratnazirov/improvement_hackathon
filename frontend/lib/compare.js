@@ -16,6 +16,8 @@ const Compare = (() => {
         <th>Δ</th>
         <th>Макс. перерыв A</th>
         <th>Макс. перерыв B</th>
+        <th>Средние hops A</th>
+        <th>Средние hops B</th>
         <th>A ≥90%</th>
         <th>B ≥90%</th>
       </tr>`;
@@ -31,6 +33,8 @@ const Compare = (() => {
         <td class="${deltaClass}">${sign}${d.delta_availability}</td>
         <td>${d.max_gap_min_a} мин</td>
         <td>${d.max_gap_min_b} мин</td>
+        <td>${d.avg_hops_a ?? "—"}</td>
+        <td>${d.avg_hops_b ?? "—"}</td>
         <td>${d.meets_target_a ? '✅' : '❌'}</td>
         <td>${d.meets_target_b ? '✅' : '❌'}</td>
       </tr>`;

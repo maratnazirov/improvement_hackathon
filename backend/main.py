@@ -175,6 +175,9 @@ def compare(a: str, b: str):
             "max_gap_min_b": vb.get("max_gap_min"),
             "meets_target_a": va.get("meets_target"),
             "meets_target_b": vb.get("meets_target"),
+            "avg_hops_a": va.get("avg_hops"),
+            "avg_hops_b": vb.get("avg_hops"),
+
         }
 
     return {

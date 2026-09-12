@@ -11,21 +11,51 @@ def _step_count(scenario: dict) -> int:
     return int(e["horizon_s"] // e["step_s"])
 
 
-def _classify_failure(snapshot: dict, client_id: str, gateway_ids: List[str]) -> str:
+def _classify_failure(
+    scenario: dict,
+    snapshot: dict,
+    client_id: str,
+    gateway_ids: List[str],
+    t_s: int,
+) -> str:
     """Определяет причину отсутствия маршрута."""
+
+    
     has_client_edge = any(
         edge[0] == client_id or edge[1] == client_id
         for edge in snapshot["edges"]
     )
+
     if not has_client_edge:
         return "no_visible_sat"
 
+   
+    available_gateways = []
+
     for gw in gateway_ids:
-        for edge in snapshot["edges"]:
-            if (edge[0] == gw and edge[1] != client_id) or \
-               (edge[1] == gw and edge[0] != client_id):
-                return "isl_disconnected"
-    return "no_gateway_contact"
+        is_offline = any(
+            outage["gateway_id"] == gw
+            and outage["start_s"] <= t_s < outage["end_s"]
+            for outage in scenario["gateway_outages"]
+        )
+
+        if not is_offline:
+            available_gateways.append(gw)
+
+    
+    if not available_gateways:
+        return "gateway_outage"
+
+    
+    has_gateway_edge = any(
+        edge[0] in available_gateways or edge[1] in available_gateways
+        for edge in snapshot["edges"]
+    )
+
+    if not has_gateway_edge:
+        return "no_gateway_contact"
+
+    return "isl_disconnected"
 
 
 def run_simulation(scenario: dict) -> dict:
@@ -46,6 +76,8 @@ def run_simulation(scenario: dict) -> dict:
             "max_gap_steps": 0,
             "fail_reasons": {},
             "availability_timeline": [],
+            "total_hops": 0,
+            "route_count": 0,
         }
         for c in client_ids
     }
@@ -71,6 +103,11 @@ def run_simulation(scenario: dict) -> dict:
                 stats[client]["connected_steps"] += 1
                 stats[client]["current_gap"] = 0
                 stats[client]["availability_timeline"].append(1)
+
+                hops = max(0, len(route) - 1)
+                stats[client]["total_hops"] += hops
+                stats[client]["route_count"] += 1
+
                 step_record["routes"][client] = route
             else:
                 stats[client]["current_gap"] += 1
@@ -79,7 +116,13 @@ def run_simulation(scenario: dict) -> dict:
                     stats[client]["current_gap"]
                 )
                 stats[client]["availability_timeline"].append(0)
-                reason = _classify_failure(snap, client, gateway_ids)
+                reason = _classify_failure(
+                    scenario,
+                    snap,
+                    client,
+                    gateway_ids,
+                    t_s,
+                )
                 stats[client]["fail_reasons"][reason] = (
                     stats[client]["fail_reasons"].get(reason, 0) + 1
                 )
@@ -89,6 +132,11 @@ def run_simulation(scenario: dict) -> dict:
     results = {}
     for c in client_ids:
         availability = stats[c]["connected_steps"] / n_steps if n_steps else 0.0
+        avg_hops = (
+            stats[c]["total_hops"] / stats[c]["route_count"]
+            if stats[c]["route_count"]
+            else None
+        )
         results[c] = {
             "availability_pct": round(availability * 100, 2),
             "connected_steps": stats[c]["connected_steps"],
@@ -98,6 +146,7 @@ def run_simulation(scenario: dict) -> dict:
             "meets_target": availability >= e["target_availability"],
             "fail_reasons": stats[c]["fail_reasons"],
             "availability_timeline": stats[c]["availability_timeline"],
+            "avg_hops": round(avg_hops, 2) if avg_hops is not None else None,
         }
 
     # Рекомендации на основе результатов
