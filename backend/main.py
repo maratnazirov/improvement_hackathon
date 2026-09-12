@@ -7,10 +7,38 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from models import Scenario
 from simulator import run_simulation
 from vulnerability import analyze_vulnerability
+
+ERROR_MESSAGES = {
+    "Unsupported scenario schema": "Неподдерживаемая версия формата сценария. Ожидается schema_version: cosmo-A-1.0",
+    "Non-finite environment value": "В параметрах окружения указано некорректное числовое значение",
+    "Invalid orbit": "Некорректные параметры орбиты: высота должна быть 200–1200 км, наклонение 0–180°",
+    "Time grid must use integer seconds": "Шаг расчёта и горизонт должны быть заданы целым числом секунд",
+    "Invalid time grid": "Некорректная временная сетка: шаг должен быть больше 0, не превышать горизонт и делить его без остатка",
+    "Invalid link/target values": "Некорректные параметры связи: угол возвышения, дальность ISL или целевая доступность заданы неверно",
+    "Duplicate/empty planes": "Список орбитальных плоскостей пуст или содержит повторяющиеся ID",
+    "Invalid plane angle": "RAAN и фазирование плоскости должны быть в диапазоне 0–360°",
+    "Duplicate/empty satellite IDs": "Список спутников пуст или содержит повторяющиеся ID",
+    "launch_stage must be 1, 2 or 3": "Этап развёртывания должен быть 1, 2 или 3",
+    "Invalid satellite": "У спутника указана несуществующая плоскость или некорректные параметры",
+    "Non-unique node IDs": "ID наземных пунктов повторяются или совпадают с ID спутников",
+    "Client and gateway required": "В сценарии должен быть хотя бы один клиентский пункт и один шлюз",
+    "Invalid ground site": "Некорректный наземный пункт: неверная роль или координаты вне диапазона",
+    "Invalid outage": "Некорректный период отказа: спутник/шлюз не найден, либо интервал задан неверно",
+}
+
+def friendly(ex: ValueError) -> str:
+    msg = str(ex)
+    for key, text in ERROR_MESSAGES.items():
+        if msg.startswith(key):
+            return text
+    return f"Ошибка в данных сценария: {msg}"
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -30,6 +58,16 @@ SAVED: Dict[str, dict] = {}
 @app.get("/", response_class=HTMLResponse)
 def index():
     return (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    fields = ", ".join(
+        ".".join(str(p) for p in e["loc"][1:]) for e in exc.errors()
+    )
+    return JSONResponse(
+        status_code=422,
+        content={"detail": f"Некорректная структура сценария. Проверьте поля: {fields}"},
+    )
 
 
 # ---------- Встроенные сценарии ----------
@@ -65,7 +103,7 @@ def simulate(scenario: Scenario):
     try:
         return run_simulation(scenario.model_dump())
     except ValueError as ex:
-        raise HTTPException(400, str(ex))
+        raise HTTPException(400, friendly(ex))
 
 
 @app.post("/api/upload")
@@ -82,7 +120,7 @@ async def upload(file: UploadFile = File(...)):
     try:
         return run_simulation(scenario.model_dump())
     except ValueError as ex:
-        raise HTTPException(400, str(ex))
+        raise HTTPException(400, friendly(ex))
 
 
 # ---------- Уязвимость ----------
@@ -92,7 +130,7 @@ def vulnerability(scenario: Scenario, top_n: int = 5):
     try:
         return analyze_vulnerability(scenario.model_dump(), top_n)
     except ValueError as ex:
-        raise HTTPException(400, str(ex))
+        raise HTTPException(400, friendly(ex))
 
 
 # ---------- Выгрузка результата ----------

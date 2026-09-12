@@ -284,3 +284,6 @@ button.ghost:hover { border-color: var(--accent); color: var(--accent); }
 }
 .vuln-table th { background: var(--panel-2); }
 .vuln-critical { color: var(--red); font-weight: 600; }
+.leaflet-tile-pane {
+  filter: invert(0.9) hue-rotate(180deg) brightness(0.7) contrast(1.1);
+}

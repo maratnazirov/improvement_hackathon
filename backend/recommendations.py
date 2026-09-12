@@ -4,6 +4,7 @@ from typing import Dict, List
 
 REASON_LABELS = {
     "no_visible_sat": "нет видимого спутника",
+    "gateway_outage": "недоступность шлюза",
     "no_gateway_contact": "нет контакта со шлюзом",
     "isl_disconnected": "разрыв межспутниковой сети",
 }

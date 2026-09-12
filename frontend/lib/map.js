@@ -14,15 +14,25 @@ const MapView = (() => {
     if (initialized) return;
     map = L.map(containerId, {
       worldCopyJump: true,
-      minZoom: 1,
+      minNativeZoom: 5,
+      maxNativeZoom: 8,
       maxZoom: 8,
       attributionControl: false,
     }).setView([70, 60], 3);
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
+    
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 8,
     }).addTo(map);
+    
+    const attribution = L.control({ position: 'bottomright' });
+    
+    attribution.onAdd = function () {
+      const div = L.DomUtil.create('div', 'custom-attribution');
+      div.innerHTML = '© OpenStreetMap contributors';
+      return div;
+    };
+    
+    attribution.addTo(map);
 
     Object.values(layers).forEach(l => l.addTo(map));
     initialized = true;

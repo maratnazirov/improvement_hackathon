@@ -14,13 +14,13 @@ def _step_count(scenario: dict) -> int:
 def _classify_failure(
     scenario: dict,
     snapshot: dict,
+    graph: dict,
     client_id: str,
     gateway_ids: List[str],
     t_s: int,
 ) -> str:
     """Определяет причину отсутствия маршрута."""
 
-    
     has_client_edge = any(
         edge[0] == client_id or edge[1] == client_id
         for edge in snapshot["edges"]
@@ -29,7 +29,6 @@ def _classify_failure(
     if not has_client_edge:
         return "no_visible_sat"
 
-   
     available_gateways = []
 
     for gw in gateway_ids:
@@ -42,17 +41,15 @@ def _classify_failure(
         if not is_offline:
             available_gateways.append(gw)
 
-    
     if not available_gateways:
         return "gateway_outage"
 
-    
-    has_gateway_edge = any(
-        edge[0] in available_gateways or edge[1] in available_gateways
-        for edge in snapshot["edges"]
+    has_gateway_contact = any(
+        graph.get(gw)
+        for gw in available_gateways
     )
 
-    if not has_gateway_edge:
+    if not has_gateway_contact:
         return "no_gateway_contact"
 
     return "isl_disconnected"
@@ -78,6 +75,7 @@ def run_simulation(scenario: dict) -> dict:
             "availability_timeline": [],
             "total_hops": 0,
             "route_count": 0,
+            "visible_steps": 0,
         }
         for c in client_ids
     }
@@ -98,6 +96,14 @@ def run_simulation(scenario: dict) -> dict:
         }
 
         for client in client_ids:
+            has_visible_sat = any(
+                edge[0] == client or edge[1] == client
+                for edge in snap["edges"]
+            )
+
+            if has_visible_sat:
+                stats[client]["visible_steps"] += 1
+
             route = find_route(graph, client, gateway_ids, sat_ids)
             if route is not None:
                 stats[client]["connected_steps"] += 1
@@ -119,6 +125,7 @@ def run_simulation(scenario: dict) -> dict:
                 reason = _classify_failure(
                     scenario,
                     snap,
+                    graph,
                     client,
                     gateway_ids,
                     t_s,
@@ -132,6 +139,7 @@ def run_simulation(scenario: dict) -> dict:
     results = {}
     for c in client_ids:
         availability = stats[c]["connected_steps"] / n_steps if n_steps else 0.0
+        visibility = stats[c]["visible_steps"] / n_steps if n_steps else 0.0
         avg_hops = (
             stats[c]["total_hops"] / stats[c]["route_count"]
             if stats[c]["route_count"]
@@ -147,6 +155,7 @@ def run_simulation(scenario: dict) -> dict:
             "fail_reasons": stats[c]["fail_reasons"],
             "availability_timeline": stats[c]["availability_timeline"],
             "avg_hops": round(avg_hops, 2) if avg_hops is not None else None,
+            "visibility_pct": round(visibility * 100, 2),
         }
 
     # Рекомендации на основе результатов
