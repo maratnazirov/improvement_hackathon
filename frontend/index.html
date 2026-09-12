@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>🛰️ Проектирование спутниковой группировки</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">🛰️ КосмоХакатон 2026 · Проектирование группировки · KMKt3am</div>
+  <div class="topbar-actions">
+    <button id="btn-run" class="primary">▶ Рассчитать</button>
+    <button id="btn-vulnerability">🔍 Анализ устойчивости</button>
+    <button id="btn-reset">↺ Сброс</button>
+    <button id="btn-download">⬇ Выгрузить сценарий</button>
+    <button id="btn-export">📤 Выгрузить результат</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <aside class="sidebar">
+
+    <section class="card">
+      <h3>1. Проект</h3>
+      <label>Встроенный сценарий</label>
+      <select id="scenario-select">
+        <option value="">— загрузить из data/ —</option>
+      </select>
+      <label>Или загрузить свой JSON</label>
+      <input type="file" id="file-input" accept=".json">
+      <div id="load-status" class="status"></div>
+    </section>
+
+    <section class="card">
+      <h3>2. Конфигурация</h3>
+      <label>Очередь запуска (этап развёртывания)</label>
+      <select id="launch-stage">
+        <option value="3">3 — все 48 аппаратов</option>
+        <option value="2">2 — до 32 аппаратов</option>
+        <option value="1">1 — до 16 аппаратов</option>
+      </select>
+
+      <label>Минимальный угол возвышения, °</label>
+      <input type="number" id="min-elevation" step="1" min="0" max="89">
+
+      <label>Дальность ISL, км</label>
+      <input type="number" id="isl-range" step="100" min="100" max="10000">
+
+      <label>RAAN плоскостей (ориентация)</label>
+      <div id="planes-editor" class="planes-editor"></div>
+
+      <label>Фазирование плоскостей (phase)</label>
+      <div id="phase-editor" class="phase-editor"></div>
+    </section>
+
+    <section class="card">
+      <h3>3. Отказы</h3>
+      <div id="failures-list" class="list"></div>
+      <button id="btn-add-failure" class="ghost">+ Добавить отказ спутника</button>
+    </section>
+
+    <section class="card">
+      <h3>4. Варианты</h3>
+      <input type="text" id="variant-name" placeholder="Имя варианта (A, B, ...)">
+      <button id="btn-save" class="ghost">💾 Сохранить текущий</button>
+      <div id="saved-list" class="list"></div>
+      <div class="compare-row">
+        <select id="compare-a"></select>
+        <select id="compare-b"></select>
+        <button id="btn-compare" class="ghost">⇄ Сравнить</button>
+      </div>
+    </section>
+
+    <section class="card" id="recommendations-card" style="display:none;">
+      <h3>5. Рекомендации</h3>
+      <ul id="recommendations-list" class="recs"></ul>
+    </section>
+
+  </aside>
+
+  <section class="viewport">
+
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-legend">
+        <span><i class="dot sat"></i> активный</span>
+        <span><i class="dot sat-isolated"></i> изолирован</span>
+        <span><i class="dot sat-fail"></i> отказ</span>
+        <span><i class="dot client"></i> клиент</span>
+        <span><i class="dot client-fail"></i> клиент без связи</span>
+        <span><i class="dot gateway"></i> шлюз</span>
+        <span><i class="line route"></i> маршрут</span>
+        <span><i class="line isl"></i> ISL</span>
+      </div>
+      <div class="client-picker">
+        <label>Клиент:</label>
+        <select id="client-select"></select>
+      </div>
+      <div id="progress" class="progress hidden">
+        <div class="progress-bar"></div>
+        <span>Расчёт…</span>
+      </div>
+    </div>
+
+    <div class="timeline-wrap">
+      <div class="timeline-header">
+        <button id="btn-prev">◀</button>
+        <input type="range" id="time-slider" min="0" max="0" value="0">
+        <button id="btn-next">▶</button>
+        <button id="btn-play">▶︎ Play</button>
+        <span id="time-label">t = 0 с</span>
+      </div>
+      <canvas id="availability-chart" height="140"></canvas>
+    </div>
+
+  </section>
+
+</main>
+
+<div id="modal-compare" class="modal hidden">
+  <div class="modal-content">
+    <header>
+      <h2>Сравнение вариантов</h2>
+      <button id="modal-close" class="ghost">✕</button>
+    </header>
+    <div id="compare-body"></div>
+  </div>
+</div>
+
+<div id="modal-vulnerability" class="modal hidden">
+  <div class="modal-content">
+    <header>
+      <h2>Анализ устойчивости</h2>
+      <button id="modal-close-vuln" class="ghost">✕</button>
+    </header>
+    <div id="vulnerability-body"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/lib/map.js"></script>
+<script src="/static/lib/timeline.js"></script>
+<script src="/static/lib/editor.js"></script>
+<script src="/static/lib/compare.js"></script>
+<script src="/static/app.js"></script>
+
+</body>
+</html>
